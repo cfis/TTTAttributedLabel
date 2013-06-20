@@ -54,27 +54,6 @@ static inline CTLineBreakMode CTLineBreakModeFromUILineBreakMode(UILineBreakMode
 	}
 }
 
-static inline NSTextCheckingType NSTextCheckingTypeFromUIDataDetectorType(UIDataDetectorTypes dataDetectorType) {
-    NSTextCheckingType textCheckingType = 0;
-    if (dataDetectorType & UIDataDetectorTypeAddress) {
-        textCheckingType |= NSTextCheckingTypeAddress;
-    }
-    
-    if (dataDetectorType & UIDataDetectorTypeCalendarEvent) {
-        textCheckingType |= NSTextCheckingTypeDate;
-    }
-    
-    if (dataDetectorType & UIDataDetectorTypeLink) {
-        textCheckingType |= NSTextCheckingTypeLink;
-    }
-    
-    if (dataDetectorType & UIDataDetectorTypePhoneNumber) {
-        textCheckingType |= NSTextCheckingTypePhoneNumber;
-    }
-    
-    return textCheckingType;
-}
-
 static inline NSDictionary * NSAttributedStringAttributesFromLabel(TTTAttributedLabel *label) {
     NSMutableDictionary *mutableAttributes = [NSMutableDictionary dictionary]; 
 
@@ -258,9 +237,7 @@ static inline NSAttributedString * NSAttributedStringBySettingColorFromContext(N
 - (void)commonInit {
     self.userInteractionEnabled = YES;
     self.multipleTouchEnabled = NO;
-    
-    self.dataDetectorTypes = UIDataDetectorTypeNone;
-    
+        
     self.textInsets = UIEdgeInsetsZero;
     
     self.links = [NSArray array];
@@ -274,12 +251,18 @@ static inline NSAttributedString * NSAttributedStringBySettingColorFromContext(N
     [mutableActiveLinkAttributes setObject:[NSNumber numberWithBool:NO] forKey:(NSString *)kCTUnderlineStyleAttributeName];
 
     if ([NSMutableParagraphStyle class]) {
+        [mutableLinkAttributes setObject:[UIColor blueColor] forKey:(NSString *)kCTForegroundColorAttributeName];
+        [mutableActiveLinkAttributes setObject:[UIColor redColor] forKey:(NSString *)kCTForegroundColorAttributeName];
+
         NSMutableParagraphStyle *paragraphStyle = [[NSMutableParagraphStyle alloc] init];
         paragraphStyle.lineBreakMode = NSLineBreakByWordWrapping;
         
         [mutableLinkAttributes setObject:paragraphStyle forKey:(NSString *)kCTParagraphStyleAttributeName];
         [mutableActiveLinkAttributes setObject:paragraphStyle forKey:(NSString *)kCTParagraphStyleAttributeName];
     } else {
+        [mutableLinkAttributes setObject:(__bridge id)[[UIColor blueColor] CGColor] forKey:(NSString *)kCTForegroundColorAttributeName];
+        [mutableActiveLinkAttributes setObject:(__bridge id)[[UIColor redColor] CGColor] forKey:(NSString *)kCTForegroundColorAttributeName];
+
         CTLineBreakMode lineBreakMode = CTLineBreakModeFromUILineBreakMode(UILineBreakModeWordWrap);
         CTParagraphStyleSetting paragraphStyles[1] = {
             {.spec = kCTParagraphStyleSpecifierLineBreakMode, .valueSize = sizeof(CTLineBreakMode), .value = (const void *)&lineBreakMode}
@@ -312,6 +295,7 @@ static inline NSAttributedString * NSAttributedStringBySettingColorFromContext(N
     _attributedText = [text copy];
     
     [self setNeedsFramesetter];
+    [self setNeedsDisplay];
 }
 
 - (void)setNeedsFramesetter {
@@ -346,11 +330,11 @@ static inline NSAttributedString * NSAttributedStringBySettingColorFromContext(N
 
 #pragma mark -
 
-- (void)setDataDetectorTypes:(UIDataDetectorTypes)dataDetectorTypes {
+- (void)setDataDetectorTypes:(NSTextCheckingTypes)dataDetectorTypes {
     _dataDetectorTypes = dataDetectorTypes;
     
-    if (self.dataDetectorTypes != UIDataDetectorTypeNone) {
-        self.dataDetector = [NSDataDetector dataDetectorWithTypes:NSTextCheckingTypeFromUIDataDetectorType(self.dataDetectorTypes) error:nil];
+    if (self.dataDetectorTypes) {
+        self.dataDetector = [NSDataDetector dataDetectorWithTypes:self.dataDetectorTypes error:nil];
     } else {
         self.dataDetector = nil;
     }
@@ -411,6 +395,12 @@ static inline NSAttributedString * NSAttributedStringBySettingColorFromContext(N
             withRange:(NSRange)range
 {
     [self addLinkWithTextCheckingResult:[NSTextCheckingResult dateCheckingResultWithRange:range date:date timeZone:timeZone duration:duration]];
+}
+
+- (void)addLinkToTransitInformation:(NSDictionary *)components
+                          withRange:(NSRange)range
+{
+    [self addLinkWithTextCheckingResult:[NSTextCheckingResult transitInformationCheckingResultWithRange:range components:components]];
 }
 
 #pragma mark -
@@ -779,7 +769,7 @@ static inline NSAttributedString * NSAttributedStringBySettingColorFromContext(N
     self.activeLink = nil;
 
     self.links = [NSArray array];
-    if (self.attributedText && self.dataDetectorTypes != UIDataDetectorTypeNone) {
+    if (self.attributedText && self.dataDetectorTypes) {
         //dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
             NSArray *results = [self.dataDetector matchesInString:[text string] options:0 range:NSMakeRange(0, [text length])];
             if ([results count] > 0) {
@@ -949,7 +939,7 @@ afterInheritingLabelAttributesAndConfiguringWithBlock:(NSMutableAttributedString
         // Finally, draw the text or highlighted text itself (on top of the shadow, if there is one)
         if (self.highlightedTextColor && self.highlighted) {
             NSMutableAttributedString *highlightAttributedString = [self.renderedAttributedText mutableCopy];
-            [highlightAttributedString addAttribute:(NSString *)kCTForegroundColorAttributeName value:(id)[self.highlightedTextColor CGColor] range:NSMakeRange(0, highlightAttributedString.length)];
+            [highlightAttributedString addAttribute:(__bridge NSString *)kCTForegroundColorAttributeName value:(id)[self.highlightedTextColor CGColor] range:NSMakeRange(0, highlightAttributedString.length)];
             
             if (!self.highlightFramesetter) {
                 self.highlightFramesetter = CTFramesetterCreateWithAttributedString((__bridge CFAttributedStringRef)highlightAttributedString);
@@ -1005,7 +995,8 @@ afterInheritingLabelAttributesAndConfiguringWithBlock:(NSMutableAttributedString
 }
 
 - (CGSize)intrinsicContentSize {
-    return [self sizeThatFits:CGSizeMake(CGFLOAT_MAX, CGFLOAT_MAX)];
+    // There's an implicit width from the original UILabel implementation
+    return [self sizeThatFits:[super intrinsicContentSize]];
 }
 
 #pragma mark - UIResponder
@@ -1071,6 +1062,11 @@ afterInheritingLabelAttributesAndConfiguringWithBlock:(NSMutableAttributedString
                     return;
                 }
                 break;
+            case NSTextCheckingTypeTransitInformation:
+                if ([self.delegate respondsToSelector:@selector(attributedLabel:didSelectLinkWithTransitInformation:)]) {
+                    [self.delegate attributedLabel:self didSelectLinkWithTransitInformation:result.components];
+                    return;
+                }
             default:
                 break;
         }
