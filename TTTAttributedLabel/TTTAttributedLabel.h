@@ -43,6 +43,11 @@ extern NSString * const kTTTStrikeOutAttributeName;
 extern NSString * const kTTTBackgroundFillColorAttributeName;
 
 /**
+ The padding for the background fill. Value must be a `UIEdgeInsets`. Default value is `UIEdgeInsetsZero` (no padding).
+ */
+extern NSString * const kTTTBackgroundFillPaddingAttributeName;
+
+/**
  The background stroke color. Value must be a `CGColorRef`. Default value is `nil` (no stroke).
  */
 extern NSString * const kTTTBackgroundStrokeColorAttributeName;
@@ -101,11 +106,16 @@ extern NSString * const kTTTBackgroundCornerRadiusAttributeName;
 ///--------------------------------------------
 
 /**
- A bitmask of `NSTextCheckingType` which are used to automatically detect links in the label text.
- 
- @warning You must specify `dataDetectorTypes` before setting the `text`, with either `setText:` or `setText:afterInheritingLabelAttributesAndConfiguringWithBlock:`.
+ @deprecated Use `enabledTextCheckingTypes` property instead.
  */
-@property (nonatomic, assign) NSTextCheckingTypes dataDetectorTypes;
+@property (nonatomic, assign) NSTextCheckingTypes dataDetectorTypes DEPRECATED_MSG_ATTRIBUTE("Use enabledTextCheckingTypes property instead.");
+
+/**
+ A bitmask of `NSTextCheckingType` which are used to automatically detect links in the label text.
+
+ @warning You must specify `enabledTextCheckingTypes` before setting the `text`, with either `setText:` or `setText:afterInheritingLabelAttributesAndConfiguringWithBlock:`.
+ */
+@property (nonatomic, assign) NSTextCheckingTypes enabledTextCheckingTypes;
 
 /**
  An array of `NSTextCheckingResult` objects for links detected or manually added to the label text.
