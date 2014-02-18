@@ -22,6 +22,7 @@
 
 #import "TTTAttributedLabel.h"
 
+#import <QuartzCore/QuartzCore.h>
 #import <Availability.h>
 
 #define kTTTLineBreakWordWrapTextWidthScalingFactor (M_PI / M_E)
@@ -149,6 +150,7 @@ static inline NSDictionary * NSAttributedStringAttributesFromLabel(TTTAttributed
     if ([NSMutableParagraphStyle class]) {
         [mutableAttributes setObject:label.font forKey:(NSString *)kCTFontAttributeName];
         [mutableAttributes setObject:label.textColor forKey:(NSString *)kCTForegroundColorAttributeName];
+        [mutableAttributes setObject:@(label.kern) forKey:(NSString *)kCTKernAttributeName];
 
         NSMutableParagraphStyle *paragraphStyle = [[NSMutableParagraphStyle alloc] init];
         paragraphStyle.alignment = label.textAlignment;
@@ -173,6 +175,7 @@ static inline NSDictionary * NSAttributedStringAttributesFromLabel(TTTAttributed
         CFRelease(font);
 
         [mutableAttributes setObject:(id)[label.textColor CGColor] forKey:(NSString *)kCTForegroundColorAttributeName];
+        [mutableAttributes setObject:@(label.kern) forKey:(NSString *)kCTKernAttributeName];
 
         CTTextAlignment alignment = CTTextAlignmentFromTTTTextAlignment(label.textAlignment);
         CGFloat lineSpacing = label.leading;
@@ -406,6 +409,12 @@ static inline CGSize CTFramesetterSuggestFrameSizeForAttributedStringWithConstra
     
     [self setNeedsFramesetter];
     [self setNeedsDisplay];
+    
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 60000
+    if ([self respondsToSelector:@selector(invalidateIntrinsicContentSize)]) {
+        [self invalidateIntrinsicContentSize];
+    }
+#endif
 }
 
 - (void)setNeedsFramesetter {
@@ -824,7 +833,7 @@ static inline CGSize CTFramesetterSuggestFrameSizeForAttributedStringWithConstra
                     runBounds.size.width = CGRectGetWidth(lineBounds);
                 }
                 
-                CGPathRef path = [[UIBezierPath bezierPathWithRoundedRect:CGRectInset(CGRectInset(runBounds, -1.0f, -3.0f), lineWidth, lineWidth) cornerRadius:cornerRadius] CGPath];
+                CGPathRef path = [[UIBezierPath bezierPathWithRoundedRect:CGRectInset(CGRectInset(runBounds, -1.0f, 0.0f), lineWidth, lineWidth) cornerRadius:cornerRadius] CGPath];
                 
                 CGContextSetLineJoin(c, kCGLineJoinRound);
                 
@@ -1002,6 +1011,8 @@ afterInheritingLabelAttributesAndConfiguringWithBlock:(NSMutableAttributedString
 
         self.attributedText = mutableAttributedString;
         [self setNeedsDisplay];
+
+        [CATransaction flush];
     } else if (self.inactiveAttributedText) {
         self.attributedText = self.inactiveAttributedText;
         self.inactiveAttributedText = nil;
@@ -1305,6 +1316,7 @@ afterInheritingLabelAttributesAndConfiguringWithBlock:(NSMutableAttributedString
     [coder encodeObject:@(self.highlightedShadowRadius) forKey:NSStringFromSelector(@selector(highlightedShadowRadius))];
     [coder encodeCGSize:self.highlightedShadowOffset forKey:NSStringFromSelector(@selector(highlightedShadowOffset))];
     [coder encodeObject:self.highlightedShadowColor forKey:NSStringFromSelector(@selector(highlightedShadowColor))];
+    [coder encodeObject:@(self.kern) forKey:NSStringFromSelector(@selector(kern))];
     [coder encodeObject:@(self.firstLineIndent) forKey:NSStringFromSelector(@selector(firstLineIndent))];
     [coder encodeObject:@(self.leading) forKey:NSStringFromSelector(@selector(leading))];
     [coder encodeObject:@(self.lineHeightMultiple) forKey:NSStringFromSelector(@selector(lineHeightMultiple))];
@@ -1358,6 +1370,10 @@ afterInheritingLabelAttributesAndConfiguringWithBlock:(NSMutableAttributedString
 
     if ([coder containsValueForKey:NSStringFromSelector(@selector(highlightedShadowColor))]) {
         self.highlightedShadowColor = [coder decodeObjectForKey:NSStringFromSelector(@selector(highlightedShadowColor))];
+    }
+    
+    if ([coder containsValueForKey:NSStringFromSelector(@selector(kern))]) {
+        self.kern = [[coder decodeObjectForKey:NSStringFromSelector(@selector(kern))] floatValue];
     }
 
     if ([coder containsValueForKey:NSStringFromSelector(@selector(firstLineIndent))]) {
