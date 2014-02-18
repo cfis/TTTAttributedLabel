@@ -962,17 +962,17 @@ static inline CGSize CTFramesetterSuggestFrameSizeForAttributedStringWithConstra
 #else
         __weak __typeof(self)weakSelf = self;
 #endif
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        //dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
             __strong __typeof(weakSelf)strongSelf = weakSelf;
             NSArray *results = [strongSelf.dataDetector matchesInString:[(NSAttributedString *)text string] options:0 range:NSMakeRange(0, [(NSAttributedString *)text length])];
             if ([results count] > 0) {
-                dispatch_sync(dispatch_get_main_queue(), ^{
+               // dispatch_sync(dispatch_get_main_queue(), ^{
                     if ([[strongSelf.attributedText string] isEqualToString:[(NSAttributedString *)text string]]) {
                         [strongSelf addLinksWithTextCheckingResults:results attributes:strongSelf.linkAttributes];
                     }
-                });
+               // });
             }
-        });
+       // });
     }
         
     [super setText:[self.attributedText string]];
