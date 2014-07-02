@@ -1063,7 +1063,8 @@ static inline CGSize CTFramesetterSuggestFrameSizeForAttributedStringWithConstra
                         }
                // });
                 }
-       // });
+            }
+        // });
     }
 
 #if __IPHONE_OS_VERSION_MAX_ALLOWED >= 70000
